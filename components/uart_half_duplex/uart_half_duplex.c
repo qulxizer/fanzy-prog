@@ -2,7 +2,10 @@
 
 #include "driver/gpio.h"
 #include "driver/uart.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+
+static const char *TAG = "uart_half_duplex";
 
 enum {
   UART_HALF_DUPLEX_PORT = UART_NUM_1,
@@ -43,6 +46,11 @@ esp_err_t uart_half_duplex_write(const uint8_t *data, size_t len) {
   ESP_RETURN_ON_ERROR(uart_disable_rx_intr(UART_HALF_DUPLEX_PORT),
                       "uart_half_duplex", "failed to disable RX interrupt");
 
+  // Drop echo or stale bytes before starting a new half-duplex exchange.
+  uart_flush_input(UART_HALF_DUPLEX_PORT);
+  ESP_LOGD(TAG, "TX %u bytes", (unsigned)len);
+  ESP_LOG_BUFFER_HEXDUMP(TAG, data, len, ESP_LOG_DEBUG);
+
   int written = uart_write_bytes(UART_HALF_DUPLEX_PORT, data, len);
   if (written < 0) {
     uart_enable_rx_intr(UART_HALF_DUPLEX_PORT);
@@ -51,9 +59,6 @@ esp_err_t uart_half_duplex_write(const uint8_t *data, size_t len) {
 
   esp_err_t error = uart_wait_tx_done(
       UART_HALF_DUPLEX_PORT, pdMS_TO_TICKS(UART_HALF_DUPLEX_TX_TIMEOUT_MS));
-  if (error == ESP_OK) {
-    uart_flush_input(UART_HALF_DUPLEX_PORT);
-  }
 
   esp_err_t enable_error = uart_enable_rx_intr(UART_HALF_DUPLEX_PORT);
   if (error != ESP_OK) {
@@ -64,6 +69,11 @@ esp_err_t uart_half_duplex_write(const uint8_t *data, size_t len) {
 
 int uart_half_duplex_read(uint8_t *buffer, size_t max_len,
                           uint32_t timeout_ms) {
-  return uart_read_bytes(UART_HALF_DUPLEX_PORT, buffer, max_len,
-                         pdMS_TO_TICKS(timeout_ms));
+  int received = uart_read_bytes(UART_HALF_DUPLEX_PORT, buffer, max_len,
+                                 pdMS_TO_TICKS(timeout_ms));
+  if (received > 0) {
+    ESP_LOGD(TAG, "RX %d bytes", received);
+    ESP_LOG_BUFFER_HEXDUMP(TAG, buffer, received, ESP_LOG_DEBUG);
+  }
+  return received;
 }

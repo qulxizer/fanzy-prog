@@ -3,7 +3,7 @@
 ## Configuration
 
 The Wi-Fi access point is implemented in `components/wifi_access_point` and is
-disabled by default. Configure it with:
+enabled by default with the SSID `fanzy-prog`. Configure it with:
 
 ```text
 idf.py menuconfig

@@ -2,7 +2,7 @@ menu "Fanzy Wi-Fi access point"
 
 config FANZY_WIFI_AP_ENABLED
     bool "Enable Wi-Fi access point"
-    default n
+    default y
     help
         Initialize the network stack and create a configurable Wi-Fi network.
 
