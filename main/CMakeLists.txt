@@ -1,3 +1,3 @@
 idf_component_register(SRCS "main.c"
-                    PRIV_REQUIRES esp_wifi esp_driver_gpio esp_driver_uart
-                    INCLUDE_DIRS ".")
+                       PRIV_REQUIRES fanzy_protocol uart_half_duplex wifi_access_point
+                       INCLUDE_DIRS ".")

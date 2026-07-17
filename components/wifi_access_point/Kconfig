@@ -1,0 +1,24 @@
+menu "Fanzy Wi-Fi access point"
+
+config FANZY_WIFI_AP_ENABLED
+    bool "Enable Wi-Fi access point"
+    default n
+    help
+        Initialize the network stack and create a configurable Wi-Fi network.
+
+config FANZY_WIFI_AP_SSID
+    string "Access point SSID"
+    default "fanzy-prog"
+    depends on FANZY_WIFI_AP_ENABLED
+    help
+        SSID advertised by the access point.
+
+config FANZY_WIFI_AP_PASSWORD
+    string "Access point password"
+    default ""
+    depends on FANZY_WIFI_AP_ENABLED
+    help
+        WPA2 password for the access point. Leave empty to create an open
+        network. WPA2 passwords must contain at least eight characters.
+
+endmenu
