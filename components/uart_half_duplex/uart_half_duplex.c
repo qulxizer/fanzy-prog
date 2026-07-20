@@ -7,14 +7,6 @@
 
 static const char *TAG = "uart_half_duplex";
 
-enum {
-  UART_HALF_DUPLEX_PORT = UART_NUM_1,
-  UART_HALF_DUPLEX_PIN = 4,
-  UART_HALF_DUPLEX_BAUDRATE = 115200,
-  UART_HALF_DUPLEX_RX_BUFFER_SIZE = 512,
-  UART_HALF_DUPLEX_TX_TIMEOUT_MS = 100,
-};
-
 esp_err_t uart_half_duplex_init(void) {
   const uart_config_t config = {
       .baud_rate = UART_HALF_DUPLEX_BAUDRATE,

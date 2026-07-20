@@ -1,104 +1,103 @@
+#include "driver/uart.h"
 #include "esp_log.h"
 #include "fanzy_protocol.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
 #include "freertos/task.h"
 #include "http_server.h"
 #include "uart_half_duplex.h"
 #include "wifi_access_point.h"
+#include <stdint.h>
+#include <stdio.h>
 #include <string.h>
-
-enum {
-  PROTO_SOF = 0xAA,
-  PROTO_RESP_SOF = 0xBB,
-  PROTO_READ_CONFIG_INTERVAL_MS = 5000,
-  PROTO_FRAME_SIZE = sizeof(fanzy_proto_packet_t),
-};
 
 static const char *TAG = "main";
 
-static fanzy_proto_packet_t read_config_packet(void) {
-  fanzy_proto_packet_t packet = {0};
-  packet.sof = PROTO_SOF;
-  packet.msg_id = FANZY_PROTO_MSG_READ_CONFIG;
-  packet.length = 0;
-  return packet;
-}
-
-static fanzy_proto_packet_t init_packet(void) {
-  fanzy_proto_packet_t packet = {0};
-  packet.sof = PROTO_SOF;
-  packet.msg_id = FANZY_PROTO_MSG_INIT;
-  packet.length = 0;
-  return packet;
-}
-
-static void handle_response(const uint8_t *frame) {
-  ESP_LOGD(TAG, "response header: sof=0x%02x msg=0x%02x length=%u", frame[0],
-           frame[1], frame[2]);
-  if (frame[0] != PROTO_RESP_SOF || frame[1] != FANZY_PROTO_MSG_READ_CONFIG ||
-      frame[2] > sizeof(fanzy_config_t)) {
-    ESP_LOGD(TAG, "ignored invalid response frame");
+void print_fanzy_config(const char *tag, const fanzy_config_t *cfg) {
+  if (cfg == NULL) {
+    ESP_LOGE(tag, "Cannot print configuration: Pointer is NULL");
     return;
   }
 
-  fanzy_config_t config = {0};
-  memcpy(&config, &frame[3], frame[2]);
-  http_server_update_config(&config);
-  ESP_LOGI(TAG,
-           "config: magic=%d temp_pu=%d pwm_inverted=%d ac_pu=%d "
-           "temp_r=%d adc=%d..%d valid=%d..%dC fan_temp=%.1f..%.1fC "
-           "duty=%d..%d ac_multiplier=%.2f ac_min_speed=%d",
-           config.magic, config.temp_divider_pu, config.fan_pwm_inverted,
-           config.ac_pullup, config.temp_r_fixed_ohm, config.temp_adc_min,
-           config.temp_adc_max, config.temp_min_valid_c,
-           config.temp_max_valid_c, config.fan_temp_on_c,
-           config.fan_temp_full_c, config.fan_min_duty, config.fan_max_duty,
-           config.ac_multiplier, config.ac_min_speed);
-}
-
-static void protocol_task(void *arg) {
-  (void)arg;
-  uint8_t input[128];
-  size_t buffered = 0;
-
-  fanzy_proto_packet_t init = init_packet();
-  ESP_ERROR_CHECK(uart_half_duplex_write((uint8_t *)&init, sizeof(init)));
-
-  while (true) {
-    fanzy_proto_packet_t request = read_config_packet();
-    ESP_ERROR_CHECK(
-        uart_half_duplex_write((uint8_t *)&request, sizeof(request)));
-
-    int received =
-        uart_half_duplex_read(input + buffered, sizeof(input) - buffered,
-                              PROTO_READ_CONFIG_INTERVAL_MS);
-    if (received > 0) {
-      buffered += received;
-      ESP_LOGD(TAG, "protocol buffer: %u bytes", (unsigned)buffered);
-    }
-
-    while (buffered >= PROTO_FRAME_SIZE) {
-      size_t offset = 0;
-      while (offset < buffered && input[offset] != PROTO_RESP_SOF) {
-        offset++;
-      }
-      if (offset > 0) {
-        memmove(input, input + offset, buffered - offset);
-        buffered -= offset;
-      }
-      if (buffered < PROTO_FRAME_SIZE) {
-        break;
-      }
-      handle_response(input);
-      memmove(input, input + PROTO_FRAME_SIZE, buffered - PROTO_FRAME_SIZE);
-      buffered -= PROTO_FRAME_SIZE;
-    }
-  }
+  ESP_LOGI(tag, "--- fanzy_config_t Configuration ---");
+  ESP_LOGI(tag, "  magic:                     0x%08X", cfg->magic);
+  ESP_LOGI(tag, "  temp_divider_pu:           %s",
+           cfg->temp_divider_pu ? "true" : "false");
+  ESP_LOGI(tag, "  fan_pwm_inverted:          %s",
+           cfg->fan_pwm_inverted ? "true" : "false");
+  ESP_LOGI(tag, "  ac_pullup:                 %s",
+           cfg->ac_pullup ? "true" : "false");
+  ESP_LOGI(tag, "  temp_r_fixed_ohm:          %d Ohm", cfg->temp_r_fixed_ohm);
+  ESP_LOGI(tag, "  temp_adc_max:              %d", cfg->temp_adc_max);
+  ESP_LOGI(tag, "  temp_adc_min:              %d", cfg->temp_adc_min);
+  ESP_LOGI(tag, "  temp_adc_short_threshold:  %d",
+           cfg->temp_adc_short_threshold);
+  ESP_LOGI(tag, "  temp_adc_open_threshold:   %d",
+           cfg->temp_adc_open_threshold);
+  ESP_LOGI(tag, "  temp_min_valid_c:          %d C", cfg->temp_min_valid_c);
+  ESP_LOGI(tag, "  temp_max_valid_c:          %d C", cfg->temp_max_valid_c);
+  ESP_LOGI(tag, "  fan_temp_on_c:             %.2f C", cfg->fan_temp_on_c);
+  ESP_LOGI(tag, "  fan_temp_full_c:           %.2f C", cfg->fan_temp_full_c);
+  ESP_LOGI(tag, "  fan_min_duty:              %d", cfg->fan_min_duty);
+  ESP_LOGI(tag, "  fan_max_duty:              %d", cfg->fan_max_duty);
+  ESP_LOGI(tag, "  ac_multiplier:             %.4f", cfg->ac_multiplier);
+  ESP_LOGI(tag, "  ac_min_speed:              %d", cfg->ac_min_speed);
+  ESP_LOGI(tag, "------------------------------------");
 }
 
 void app_main(void) {
-  ESP_ERROR_CHECK(wifi_access_point_start());
+  // ESP_ERROR_CHECK(wifi_access_point_start());
   ESP_ERROR_CHECK(uart_half_duplex_init());
-  ESP_ERROR_CHECK(http_server_start());
-  xTaskCreate(protocol_task, "protocol", 4096, NULL, 5, NULL);
+
+  fanzy_config_t cfg = {
+      .magic = 0x46415A59u,
+
+      .temp_divider_pu = false,
+      .fan_pwm_inverted = true,
+      .ac_pullup = true,
+
+      .temp_r_fixed_ohm = 1000,
+      .temp_adc_max = 4095,
+      .temp_adc_min = 0,
+      .temp_adc_short_threshold = 300,
+      .temp_adc_open_threshold = 3900,
+      .temp_min_valid_c = -40,
+      .temp_max_valid_c = 150,
+
+      .fan_temp_on_c = 60.0f,
+      .fan_temp_full_c = 65.0f,
+      .fan_min_duty = 20,
+      .fan_max_duty = 90,
+
+      .ac_multiplier = 2.0f,
+      .ac_min_speed = 50,
+  };
+
+  ESP_LOGI(TAG, "Press 'w' to write config, 'r' to read config.");
+
+  while (1) {
+    int c = getchar();
+
+    switch (c) {
+    case 'w':
+      ESP_LOGI(TAG, "Writing config...");
+      fanzy_protocol_write_config(&cfg);
+      break;
+
+    case 'r': {
+      fanzy_config_t cfgg = {0};
+
+      ESP_LOGI(TAG, "Reading config...");
+      fanzy_protocol_read_config(&cfgg);
+      print_fanzy_config(TAG, &cfgg);
+      break;
+    }
+
+    default:
+      break;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+  // ESP_ERROR_CHECK(http_server_start(queue_read_request, queue_config_write));
 }
