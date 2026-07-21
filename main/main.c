@@ -1,15 +1,19 @@
-#include "driver/uart.h"
+#include "esp_eth.h"
+#include "esp_eth_driver.h" // or #include "esp_eth.h"
+#include "esp_eth_mac_openeth.h"
+#include "esp_event.h"
+#include "esp_http_server.h"
 #include "esp_log.h"
+#include "esp_netif.h"
+#include "esp_netif_types.h"
 #include "fanzy_protocol.h"
-#include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "http_server.h"
+#include "nvs_flash.h"
 #include "uart_half_duplex.h"
 #include "wifi_access_point.h"
-#include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 
 static const char *TAG = "main";
 
@@ -46,10 +50,14 @@ void print_fanzy_config(const char *tag, const fanzy_config_t *cfg) {
 }
 
 void app_main(void) {
-  // ESP_ERROR_CHECK(wifi_access_point_start());
-  ESP_ERROR_CHECK(uart_half_duplex_init());
+  ESP_ERROR_CHECK(wifi_access_point_start());
+  // ESP_ERROR_CHECK(uart_half_duplex_init());
+  httpd_handle_t server = start_web_server();
+  if (server) {
+    ESP_LOGI(TAG, "Web Server initialized. Waiting for Wi-Fi connection...");
+  }
 
-  fanzy_config_t cfg = {
+  fanzy_config_t cfggg = {
       .magic = 0x46415A59u,
 
       .temp_divider_pu = false,
@@ -65,7 +73,7 @@ void app_main(void) {
       .temp_max_valid_c = 150,
 
       .fan_temp_on_c = 60.0f,
-      .fan_temp_full_c = 65.0f,
+      .fan_temp_full_c = 85.0f,
       .fan_min_duty = 20,
       .fan_max_duty = 90,
 
@@ -81,7 +89,7 @@ void app_main(void) {
     switch (c) {
     case 'w':
       ESP_LOGI(TAG, "Writing config...");
-      fanzy_protocol_write_config(&cfg);
+      fanzy_protocol_write_config(&cfggg);
       break;
 
     case 'r': {

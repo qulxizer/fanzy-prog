@@ -1,5 +1,6 @@
 #pragma once
 
+#include "cJSON.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -38,6 +39,8 @@ typedef struct __attribute__((packed)) {
   uint8_t payload[sizeof(fanzy_config_t)];
 } fanzy_proto_packet_t;
 
+cJSON *fanzy_config_to_json(const fanzy_config_t *cfg);
 void fanzy_protocol_read_config(fanzy_config_t *cfg);
 void fanzy_protocol_write_config(fanzy_config_t *cfg);
+bool fanzy_json_to_config(const cJSON *json, fanzy_config_t *cfg);
 fanzy_proto_packet_t fanzy_protocol_init_packet(void);
