@@ -44,13 +44,10 @@ void fanzy_protocol_write_config(fanzy_config_t *cfg) {
   // uart_flush_input(UART_HALF_DUPLEX_PORT);
 }
 
-cJSON *fanzy_config_to_json(const fanzy_config_t *cfg) {
-  if (!cfg)
-    return NULL;
-
-  cJSON *json = cJSON_CreateObject();
-  if (!json)
-    return NULL;
+fanzy_proto_status_t fanzy_config_to_json(const fanzy_config_t *cfg,
+                                          cJSON *json) {
+  if (!cfg || !json)
+    return FANZY_PROTO_ERR_NULL_ARG;
   cJSON_AddNumberToObject(json, "magic", cfg->magic);
   cJSON_AddBoolToObject(json, "temp_divider_pu", cfg->temp_divider_pu);
   cJSON_AddBoolToObject(json, "fan_pwm_inverted", cfg->fan_pwm_inverted);
@@ -70,13 +67,11 @@ cJSON *fanzy_config_to_json(const fanzy_config_t *cfg) {
   cJSON_AddNumberToObject(json, "fan_max_duty", cfg->fan_max_duty);
   cJSON_AddNumberToObject(json, "ac_multiplier", cfg->ac_multiplier);
   cJSON_AddNumberToObject(json, "ac_min_speed", cfg->ac_min_speed);
-
-  return json;
+  return FANZY_PROTO_OK;
 }
-#include <cJSON.h>
-#include <stdbool.h>
 
-bool fanzy_json_to_config(const cJSON *json, fanzy_config_t *cfg) {
+fanzy_proto_status_t fanzy_json_to_config(const cJSON *json,
+                                          fanzy_config_t *cfg) {
   if (!json || !cfg)
     return false;
 
@@ -119,5 +114,5 @@ bool fanzy_json_to_config(const cJSON *json, fanzy_config_t *cfg) {
 #undef GET_FLOAT
 #undef GET_BOOL
 
-  return true;
+  return FANZY_PROTO_OK;
 }

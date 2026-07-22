@@ -24,36 +24,47 @@ extern const uint8_t index_html_start[] asm("_binary_index_html_start");
 extern const uint8_t index_html_end[] asm("_binary_index_html_end");
 
 static esp_err_t handle_get_config(httpd_req_t *req) {
-  fanzy_config_t cfg = {
-      .magic = 0x696969, .fan_pwm_inverted = 1, .temp_r_fixed_ohm = 1000};
-  cJSON *jcfg = fanzy_config_to_json(&cfg);
-  char *scfg = cJSON_Print(jcfg);
-
-  cJSON_Delete(jcfg);
+  ESP_LOGD(TAG, "handle_get_config");
   if (req->method != HTTP_GET) {
+    ESP_LOGE(TAG, "Only GET is supported on this endpoint");
     return httpd_resp_send_err(req, HTTPD_405_METHOD_NOT_ALLOWED,
                                "Only GET is supported on this endpoint");
   }
+  fanzy_config_t cfg = {
+      .magic = 0x696969, .fan_pwm_inverted = 1, .temp_r_fixed_ohm = 1000};
+
+  cJSON *jcfg = cJSON_CreateObject();
+  fanzy_proto_status_t st = fanzy_config_to_json(&cfg, jcfg);
+  if (st != FANZY_PROTO_OK) {
+    ESP_LOGE(TAG, "Failed to convert config to json");
+    return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST,
+                               "Failed to convert config to json");
+  }
+  char *scfg = cJSON_Print(jcfg);
+
+  cJSON_Delete(jcfg);
   return httpd_resp_send(req, scfg, HTTPD_RESP_USE_STRLEN);
 }
 
 static esp_err_t handle_post_config(httpd_req_t *req) {
-  ESP_LOGI(TAG, "HANDLE POST CONFIG");
+  ESP_LOGD(TAG, "handle_post_config");
 
   if (req->method != HTTP_POST) {
+    ESP_LOGE(TAG, "Only POST is supported on this endpoint");
     return httpd_resp_send_err(req, HTTPD_405_METHOD_NOT_ALLOWED,
                                "Only POST is supported on this endpoint");
   }
 
   int total_len = req->content_len;
   if (total_len >= 1024) {
+
+    ESP_LOGE(TAG, "Payload too large");
     return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Payload too large");
   }
 
   char buf[1024] = {0};
   int cur_len = 0;
 
-  // Receive body safely without ESP_ERROR_CHECK
   while (cur_len < total_len) {
     int received = httpd_req_recv(req, buf + cur_len, total_len - cur_len);
     if (received <= 0) {
@@ -68,16 +79,17 @@ static esp_err_t handle_post_config(httpd_req_t *req) {
 
   cJSON *jcfg = cJSON_Parse(buf);
   if (!jcfg) {
+    ESP_LOGE(TAG, "Failed to parse json");
     return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid JSON");
   }
 
-  fanzy_config_t cfg = {0};                   // Allocate on stack
-  bool st = fanzy_json_to_config(jcfg, &cfg); // Pass pointer to stack object
-  cJSON_Delete(jcfg);                         // Clean up cJSON memory
-
-  if (!st) {
+  fanzy_config_t cfg = {0};
+  fanzy_proto_status_t st = fanzy_json_to_config(jcfg, &cfg);
+  if (st != FANZY_PROTO_OK) {
+    ESP_LOGE(TAG, "Failed to convert json to config");
     return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
   }
+  cJSON_Delete(jcfg);
 
   ESP_LOGI(TAG, "Magic: %d", cfg.magic);
   return httpd_resp_send(req, "Success Post", HTTPD_RESP_USE_STRLEN);
