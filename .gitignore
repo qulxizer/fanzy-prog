@@ -73,6 +73,6 @@ pytest_embedded_log/
 
 # idf-component-manager output
 managed_components/
-dependencies.lock
+!dependencies.lock
 
 tmp/
