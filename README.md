@@ -13,5 +13,5 @@ http://192.168.4.1/
 The web interface reads the current configuration from the device and can send
 updated settings back over UART.
 
-![web-interface](./assets/web-interface.png)
+![web-interface](./assets/demo.png)
 
