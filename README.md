@@ -1,20 +1,17 @@
 # fanzy-prog
 
-## Configuration
+This project configures the [fanzy](https://github.com/qulxizer/fanzy) project
+using an ESP32 UART half-duplex connection. It provides an HTTP server and a
+web interface for reading and writing the fan controller configuration.
 
-The Wi-Fi access point is implemented in `components/wifi_access_point` and is
-enabled by default with the SSID `fanzy-prog`. Configure it with:
+Join the ESP32 Wi-Fi access point and open:
 
 ```text
-idf.py menuconfig
-Fanzy Wi-Fi access point
+http://192.168.4.1/
 ```
 
-Enable the access point and set its SSID and password before building. The
-password may be empty for an open network, or must contain at least eight
-characters for WPA2. Credentials are supplied through `sdkconfig` and are not
-stored in source code.
+The web interface reads the current configuration from the device and can send
+updated settings back over UART.
 
-Open `http://192.168.4.1/` after joining the access point. Loading the page
-performs one protocol read. Submitting the form performs one protocol write,
-then redirects and reads the configuration again.
+![web-interface](./assets/web-interface.png)
+
