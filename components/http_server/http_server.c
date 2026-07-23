@@ -30,8 +30,9 @@ static esp_err_t handle_get_config(httpd_req_t *req) {
     return httpd_resp_send_err(req, HTTPD_405_METHOD_NOT_ALLOWED,
                                "Only GET is supported on this endpoint");
   }
-  fanzy_config_t cfg = {
-      .magic = 0x696969, .fan_pwm_inverted = 1, .temp_r_fixed_ohm = 1000};
+
+  fanzy_config_t cfg = {0};
+  fanzy_protocol_read_config(&cfg);
 
   cJSON *jcfg = cJSON_CreateObject();
   fanzy_proto_status_t st = fanzy_config_to_json(&cfg, jcfg);
@@ -90,7 +91,7 @@ static esp_err_t handle_post_config(httpd_req_t *req) {
     return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bad Request");
   }
   cJSON_Delete(jcfg);
-
+  fanzy_protocol_write_config(&cfg);
   ESP_LOGI(TAG, "Magic: %d", cfg.magic);
   return httpd_resp_send(req, "Success Post", HTTPD_RESP_USE_STRLEN);
 }
@@ -127,8 +128,8 @@ httpd_handle_t start_web_server(void) {
                                .user_ctx = NULL};
 
     httpd_register_uri_handler(server, &config_post);
-    httpd_register_uri_handler(server, &index_get);
     httpd_register_uri_handler(server, &config_get);
+    httpd_register_uri_handler(server, &index_get);
     return server;
   }
 

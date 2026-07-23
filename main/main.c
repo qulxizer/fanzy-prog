@@ -51,7 +51,7 @@ void print_fanzy_config(const char *tag, const fanzy_config_t *cfg) {
 
 void app_main(void) {
   ESP_ERROR_CHECK(wifi_access_point_start());
-  // ESP_ERROR_CHECK(uart_half_duplex_init());
+  ESP_ERROR_CHECK(uart_half_duplex_init());
   httpd_handle_t server = start_web_server();
   if (server) {
     ESP_LOGI(TAG, "Web Server initialized. Waiting for Wi-Fi connection...");
